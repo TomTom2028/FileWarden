@@ -1,0 +1,18 @@
+{
+	"scripts": "build/**/*.js",
+	"assets": [
+		"input/**/*"
+	],
+	"targets": [
+		"node24-win-x64",
+		"node24-linux-x64"
+	],
+	"outputPath": "dist",
+	"ignore": [
+		"**/*.ts",
+		"**/*.map",
+		"node_modules/**",
+		"src/**",
+		"build/types/**"
+	]
+}
