@@ -1,0 +1,30 @@
+{
+	"name": "d",
+	"version": "1.0.0",
+	"description": "",
+	"homepage": "https://github.com/TomTom2028/FileWarden#readme",
+	"bugs": {
+		"url": "https://github.com/TomTom2028/FileWarden/issues"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/TomTom2028/FileWarden.git"
+	},
+	"license": "ISC",
+	"author": "",
+	"type": "module",
+	"main": "src/index.ts",
+	"scripts": {
+		"start": "node src/index.ts",
+		"test": "echo \"Error: no test specified\" && exit 1",
+		"build": "tsc"
+	},
+	"devDependencies": {
+		"@tsconfig/node24": "^24.0.4",
+		"@types/node": "^25.6.0",
+		"typescript": "^6.0.3"
+	},
+	"dependencies": {
+		"xxhash-addon": "^2.1.0"
+	}
+}
