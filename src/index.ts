@@ -1,10 +1,9 @@
 import xhashAddon from 'xxhash-addon'
 const { XXHash3 } = xhashAddon
 import fs from 'fs'
-import { extractArguments } from './utils.ts'
+import { getArguments } from './utils.ts'
 
-const args = process.argv.slice(2)
-const { fileName } = extractArguments(args)
+const { fileName } = getArguments()
 console.log('Hello, FileWarden!')
 const bufferedXHash3 = new XXHash3(Buffer.from([0, 0, 0, 0]))
 // get input buffer
