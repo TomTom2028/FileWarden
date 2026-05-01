@@ -1,4 +1,4 @@
-import { CommandLineArgs } from './types/commandTypes'
+import { CommandLineArgs } from './types/commandTypes.ts'
 const defaultArgs = Object.freeze({
 	logFile: 'filewarden.log',
 	dbFile: 'db.sqlite'
