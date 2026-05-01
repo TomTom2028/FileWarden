@@ -2,9 +2,11 @@ import xhashAddon from 'xxhash-addon'
 const { XXHash3 } = xhashAddon
 import fs from 'fs'
 import { getArguments } from './utils.ts'
+import { runMigrations } from './migrate.ts'
 
-const { fileName } = getArguments()
+const { fileName, dbFile } = getArguments()
 console.log('Hello, FileWarden!')
+runMigrations(dbFile)
 const bufferedXHash3 = new XXHash3(Buffer.from([0, 0, 0, 0]))
 // get input buffer
 const stream = fs.createReadStream(fileName)

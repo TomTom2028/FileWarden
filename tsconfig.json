@@ -45,5 +45,6 @@
 		"project": "typescript",
 		"rewriteRelativeImportExtensions": true,
 		"allowImportingTsExtensions": true
-	}
+	},
+	"include": ["src/**/*"]
 }

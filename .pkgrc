@@ -1,7 +1,9 @@
 {
 	"scripts": "build/**/*.js",
 	"assets": [
-		"input/**/*"
+		"input/**/*",
+		"prisma/migrations/**/*",
+		"node_modules/better-sqlite3/build/Release/*.node"
 	],
 	"targets": [
 		"node24-win-x64",
