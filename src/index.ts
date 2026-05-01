@@ -1,23 +1,32 @@
 import xhashAddon from 'xxhash-addon'
 const { XXHash3 } = xhashAddon
-import fs from 'fs'
-import { getArguments } from './utils.ts'
-import { runMigrations } from './migrate.ts'
+import syncFs from 'fs'
+import { applyFunctionToFilesRecursively, getArguments } from './utils.ts'
+import { prisma } from './prisma.ts'
 
-const { fileName, dbFile } = getArguments()
+const { fileOrFolderPath } = getArguments()
 console.log('Hello, FileWarden!')
-runMigrations(dbFile)
 const bufferedXHash3 = new XXHash3(Buffer.from([0, 0, 0, 0]))
-// get input buffer
-const stream = fs.createReadStream(fileName)
 
-const startTime = Date.now()
-for await (const chunk of stream) {
-	bufferedXHash3.update(chunk)
-}
-const endTime = Date.now()
+await applyFunctionToFilesRecursively(fileOrFolderPath, async (filePath) => {
+	const stream = syncFs.createReadStream(filePath)
+	for await (const chunk of stream) {
+		bufferedXHash3.update(chunk)
+	}
+	const hash = new Uint8Array(bufferedXHash3.digest())
+	bufferedXHash3.reset()
 
-const hash = bufferedXHash3.digest()
-console.log('Hash:', hash.toString('hex'))
-console.log('Hashing took', endTime - startTime, 'ms')
+
+	const result = await prisma.cachedResult.findFirst({
+		where: {
+			hash
+		}
+	})
+	if (result) {
+		console.log(`File: ${filePath}, Hash: ${Buffer.from(hash).toString('hex')}, Cached Result: ${result.result}`)
+	} else {
+		console.log(`File: ${filePath}, Hash: ${Buffer.from(hash).toString('hex')}, No cached result found.`)
+	}
+})
+
 

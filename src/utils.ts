@@ -1,20 +1,24 @@
 import { CommandLineArgs } from './types/commandTypes.ts'
 import "dotenv/config";
+import path from 'path';
+
+import fs from 'fs/promises'
 const defaultArgs = Object.freeze({
 	logFile: 'filewarden.log',
 	dbFile: 'db.sqlite'
 } as const)
 
+
 function extractArguments(args: string[]): CommandLineArgs {
 	if (args.length === 0) {
-		throw new Error('No file name provided. Usage: node index.js <fileName>')
+		throw new Error('No folder path provided. Usage: node index.js <folderPath>')
 	}
 
-	const fileName = args[0]
-	if (fileName === undefined || fileName.trim() === '') {
-		throw new Error('Invalid file name provided. Usage: node index.js <fileName>')
+	const fileOrFolder = args[0]
+	if (fileOrFolder === undefined || fileOrFolder.trim() === '') {
+		throw new Error('Invalid file or folder path provided. Usage: node index.js <fileOrFolderPath>')
 	}
-	const returnValue = { fileName, ...defaultArgs } as CommandLineArgs
+	const returnValue = { fileOrFolderPath: fileOrFolder, ...defaultArgs } as CommandLineArgs
 	if (args.length > 1 && args[1] !== undefined && args[1].trim() !== '') {
 		returnValue.logFile = args[1]
 	}
@@ -28,11 +32,11 @@ function extractArguments(args: string[]): CommandLineArgs {
 
 export function getArguments(): CommandLineArgs {
 	if (process.env["ENV_MODE"] === 'true') {
-		if (!process.env["FILE_NAME"]) {
-			throw new Error('No file name provided in environment variables. Please set FILE_NAME in your .env file')
+		if (!process.env["FILE_FOLDER_PATH"]) {
+			throw new Error('No file or folder path provided in environment variables. Please set FILE_FOLDER_PATH in your .env file')
 		}
 		const envArgs: CommandLineArgs = {
-			fileName: process.env["FILE_NAME"],
+			fileOrFolderPath: process.env["FILE_FOLDER_PATH"],
 			logFile: process.env["LOG_FILE"] || defaultArgs.logFile,
 			dbFile: process.env["DB_FILE"] || defaultArgs.dbFile
 		}
@@ -40,4 +44,18 @@ export function getArguments(): CommandLineArgs {
 	}
 	const args = process.argv.slice(2)
 	return extractArguments(args)
+}
+
+
+export async function applyFunctionToFilesRecursively(fileOrFolderPath: string, func: (filePath: string) => void | Promise<void>): Promise<void> {
+	const status = await fs.stat(fileOrFolderPath)
+	if (status.isDirectory()) {
+		const entries = await fs.readdir(fileOrFolderPath)
+		for (const entry of entries) {
+			const fullPath = path.join(fileOrFolderPath, entry)
+			await applyFunctionToFilesRecursively(fullPath, func)
+		}
+	} else {
+		 await func(fileOrFolderPath)
+	}
 }

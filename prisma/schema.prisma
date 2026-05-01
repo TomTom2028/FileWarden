@@ -12,23 +12,23 @@ datasource db {
   provider = "sqlite"
 }
 
-enum FilecheckResult {
+enum FilecheckResultValue {
   PASS
   FAIL
 
-  @@map("filecheck_result")
+  @@map("filecheck_result_value")
 }
 
 model CachedResult {
-  hash      Bytes                    @id
-  result    FilecheckResult
-  firstSeen DateTime                 @default(now()) @map("first_seen")
-  history   FilecheckResultHistory[]
+  hash      Bytes                @id
+  result    FilecheckResultValue
+  firstSeen DateTime             @default(now()) @map("first_seen")
+  history   FilecheckResult[]
 
   @@map("cached_result")
 }
 
-model FilecheckResultHistory {
+model FilecheckResult {
   id        Int          @id @default(autoincrement())
   fileName  String       @map("file_name")
   timestamp DateTime     @default(now())
@@ -38,5 +38,5 @@ model FilecheckResultHistory {
   @@index([fileName])
   @@index([hash])
   @@index([timestamp])
-  @@map("filecheck_result_history")
+  @@map("filecheck_result")
 }

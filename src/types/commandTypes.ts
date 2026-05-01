@@ -1,5 +1,5 @@
 export type CommandLineArgs = {
-	fileName: string
+	fileOrFolderPath: string
 	logFile: string
 	dbFile: string
 }
