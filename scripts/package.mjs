@@ -15,6 +15,7 @@
 
 import { execSync } from 'node:child_process'
 import { parseArgs } from 'node:util'
+import { pathToFileURL } from 'node:url'
 import fs from 'node:fs'
 import path from 'node:path'
 
@@ -59,13 +60,8 @@ console.log(`Installing production dependencies (target ${target})...`)
 const hostNodeDir = path.dirname(process.execPath)
 const env = { ...process.env, PATH: `${hostNodeDir}${path.delimiter}${process.env.PATH ?? ''}` }
 
-// --legacy-peer-deps avoids auto-installing optional peer deps. @prisma/client
-// lists `prisma` (the CLI) as an optional peer, which by default drags in
-// @prisma/engines, @prisma/studio-core, @prisma/dev, effect, mysql2, postgres,
-// react-dom, etc. — none of which the runtime app uses (we use the driver
-// adapter and run migrations via better-sqlite3 directly). Saves ~250MB.
 if (target === process.platform) {
-	execSync('npm ci --omit=dev --legacy-peer-deps', { cwd: appDir, stdio: 'inherit', env })
+	execSync('npm ci --omit=dev', { cwd: appDir, stdio: 'inherit', env })
 } else {
 	// Cross-install: skip install scripts because some run the package against
 	// the host node to verify the binary loads (e.g. xxhash-addon's install.js),
@@ -74,7 +70,7 @@ if (target === process.platform) {
 	// runtime resolver.
 	env.npm_config_platform = target
 	env.npm_config_arch = 'x64'
-	execSync(`npm ci --omit=dev --ignore-scripts --legacy-peer-deps --os=${target} --cpu=x64`, { cwd: appDir, stdio: 'inherit', env })
+	execSync(`npm ci --omit=dev --ignore-scripts --os=${target} --cpu=x64`, { cwd: appDir, stdio: 'inherit', env })
 
 	// For packages whose install script normally runs prebuild-install (e.g.
 	// better-sqlite3 — no bundled prebuilds, fetched per-platform), invoke it
@@ -96,20 +92,38 @@ if (target === process.platform) {
 	}
 }
 
-console.log('Pruning unused files...')
-// Source maps aren't loaded at runtime (Node only consults them on errors with
-// --enable-source-maps); safe to drop.
-pruneFiles(appDir, /\.map$/)
-// @prisma/client ships query compilers for every database it supports —
-// cockroachdb, mysql, postgresql, sqlserver, sqlite — in fast/small × js/mjs
-// variants. We only ever use sqlite. ~60MB savings per platform.
-const prismaRuntime = path.join(appDir, 'node_modules', '@prisma', 'client', 'runtime')
-if (fs.existsSync(prismaRuntime)) {
-	for (const file of fs.readdirSync(prismaRuntime)) {
-		const m = /^query_compiler_(?:fast|small)_bg\.([^.]+)\./.exec(file)
-		if (m && m[1] !== 'sqlite') fs.rmSync(path.join(prismaRuntime, file), { force: true })
-	}
+console.log('Tracing reachable files with @vercel/nft...')
+// Walk the import graph from the entry scripts and keep only files that are
+// actually reached. This drops everything pulled in by @prisma/client's
+// optional peer on `prisma` (the CLI) — @prisma/engines, @prisma/studio-core,
+// @prisma/dev, effect, mysql2, postgres, react-dom, etc. — without resorting
+// to --legacy-peer-deps. Also picks just the sqlite Prisma WASM dialect.
+const { nodeFileTrace } = await import(`${pathToFileURL(path.join(root, 'node_modules', '@vercel', 'nft', 'out', 'index.js')).href}`)
+// nft resolves entry paths against process.cwd() (not against `base`), so we
+// pass absolute paths inside appDir to make sure it traces the staged copy
+// and its node_modules — not the project root's.
+const entries = ['build/index.js', 'build/migrate.js', 'build/prisma.js'].map((e) => path.join(appDir, e))
+const { fileList, warnings } = await nodeFileTrace(entries, { base: appDir })
+for (const w of warnings) console.warn(`  nft: ${String(w.message ?? w).split('\n')[0]}`)
+
+const keep = new Set([...fileList].map((f) => path.resolve(appDir, f)))
+
+if (target !== process.platform) {
+	// nft running on the host picks the host's native binary for node-gyp-build
+	// packages (xxhash-addon ships every prebuild and selects at runtime via
+	// process.platform). For cross-builds, keep every prebuilds/ file so the
+	// target's binary survives. Cheap — total ~1MB.
+	walkFiles(path.join(appDir, 'node_modules'), (full, name, dir) => {
+		if (dir.split(path.sep).includes('prebuilds')) keep.add(full)
+	})
 }
+
+let removed = 0
+walkFiles(path.join(appDir, 'node_modules'), (full) => {
+	if (!keep.has(full)) { fs.rmSync(full); removed++ }
+})
+removeEmptyDirs(path.join(appDir, 'node_modules'))
+console.log(`  kept ${keep.size}, removed ${removed} files`)
 
 console.log(`Copying Node runtime (${nodeBin})...`)
 const embeddedNode = path.join(appDir, nodeBinaryName)
@@ -139,12 +153,21 @@ if (isWindowsTarget) {
 
 console.log(`\nDone. Run: ${launcherPath} <args>`)
 
-function pruneFiles(dir, pattern) {
+function walkFiles(dir, fn) {
+	if (!fs.existsSync(dir)) return
 	for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
 		const full = path.join(dir, entry.name)
-		if (entry.isDirectory()) pruneFiles(full, pattern)
-		else if (pattern.test(entry.name)) fs.rmSync(full, { force: true })
+		if (entry.isDirectory()) walkFiles(full, fn)
+		else if (entry.isFile()) fn(full, entry.name, dir)
 	}
+}
+
+function removeEmptyDirs(dir) {
+	if (!fs.existsSync(dir)) return
+	for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+		if (entry.isDirectory()) removeEmptyDirs(path.join(dir, entry.name))
+	}
+	if (fs.readdirSync(dir).length === 0) fs.rmdirSync(dir)
 }
 
 function findPrebuildInstallPackages(modulesDir) {
