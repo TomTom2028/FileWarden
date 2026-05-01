@@ -59,8 +59,13 @@ console.log(`Installing production dependencies (target ${target})...`)
 const hostNodeDir = path.dirname(process.execPath)
 const env = { ...process.env, PATH: `${hostNodeDir}${path.delimiter}${process.env.PATH ?? ''}` }
 
+// --legacy-peer-deps avoids auto-installing optional peer deps. @prisma/client
+// lists `prisma` (the CLI) as an optional peer, which by default drags in
+// @prisma/engines, @prisma/studio-core, @prisma/dev, effect, mysql2, postgres,
+// react-dom, etc. — none of which the runtime app uses (we use the driver
+// adapter and run migrations via better-sqlite3 directly). Saves ~250MB.
 if (target === process.platform) {
-	execSync('npm ci --omit=dev', { cwd: appDir, stdio: 'inherit', env })
+	execSync('npm ci --omit=dev --legacy-peer-deps', { cwd: appDir, stdio: 'inherit', env })
 } else {
 	// Cross-install: skip install scripts because some run the package against
 	// the host node to verify the binary loads (e.g. xxhash-addon's install.js),
@@ -69,7 +74,7 @@ if (target === process.platform) {
 	// runtime resolver.
 	env.npm_config_platform = target
 	env.npm_config_arch = 'x64'
-	execSync(`npm ci --omit=dev --ignore-scripts --os=${target} --cpu=x64`, { cwd: appDir, stdio: 'inherit', env })
+	execSync(`npm ci --omit=dev --ignore-scripts --legacy-peer-deps --os=${target} --cpu=x64`, { cwd: appDir, stdio: 'inherit', env })
 
 	// For packages whose install script normally runs prebuild-install (e.g.
 	// better-sqlite3 — no bundled prebuilds, fetched per-platform), invoke it
@@ -91,8 +96,33 @@ if (target === process.platform) {
 	}
 }
 
+console.log('Pruning unused files...')
+// Source maps aren't loaded at runtime (Node only consults them on errors with
+// --enable-source-maps); safe to drop.
+pruneFiles(appDir, /\.map$/)
+// @prisma/client ships query compilers for every database it supports —
+// cockroachdb, mysql, postgresql, sqlserver, sqlite — in fast/small × js/mjs
+// variants. We only ever use sqlite. ~60MB savings per platform.
+const prismaRuntime = path.join(appDir, 'node_modules', '@prisma', 'client', 'runtime')
+if (fs.existsSync(prismaRuntime)) {
+	for (const file of fs.readdirSync(prismaRuntime)) {
+		const m = /^query_compiler_(?:fast|small)_bg\.([^.]+)\./.exec(file)
+		if (m && m[1] !== 'sqlite') fs.rmSync(path.join(prismaRuntime, file), { force: true })
+	}
+}
+
 console.log(`Copying Node runtime (${nodeBin})...`)
-fs.copyFileSync(nodeBin, path.join(appDir, nodeBinaryName))
+const embeddedNode = path.join(appDir, nodeBinaryName)
+fs.copyFileSync(nodeBin, embeddedNode)
+
+if (!isWindowsTarget && process.platform === 'linux') {
+	// nodejs.org ships the Linux binary with debug_info; strip it (~17MB savings).
+	try {
+		execSync(`strip "${embeddedNode}"`, { stdio: 'inherit' })
+	} catch {
+		console.log('  (skipping strip — binutils `strip` not on PATH)')
+	}
+}
 
 console.log('Writing launcher...')
 const launcherPath = path.join(outDir, launcherName)
@@ -108,6 +138,14 @@ if (isWindowsTarget) {
 }
 
 console.log(`\nDone. Run: ${launcherPath} <args>`)
+
+function pruneFiles(dir, pattern) {
+	for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+		const full = path.join(dir, entry.name)
+		if (entry.isDirectory()) pruneFiles(full, pattern)
+		else if (pattern.test(entry.name)) fs.rmSync(full, { force: true })
+	}
+}
 
 function findPrebuildInstallPackages(modulesDir) {
 	const found = []
