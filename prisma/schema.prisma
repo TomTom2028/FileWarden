@@ -15,6 +15,7 @@ datasource db {
 enum FilecheckResultValue {
   PASS
   FAIL
+  UNKNOWN
 
   @@map("filecheck_result_value")
 }
@@ -30,12 +31,12 @@ model CachedResult {
 
 model FilecheckResult {
   id        Int          @id @default(autoincrement())
-  fileName  String       @map("file_name")
+  filePath  String       @map("file_path")
   timestamp DateTime     @default(now())
   hash      Bytes
   cached    CachedResult @relation(fields: [hash], references: [hash])
 
-  @@index([fileName])
+  @@index([filePath])
   @@index([hash])
   @@index([timestamp])
   @@map("filecheck_result")

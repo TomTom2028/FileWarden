@@ -5,7 +5,8 @@ import path from 'path';
 import fs from 'fs/promises'
 const defaultArgs = Object.freeze({
 	logFile: 'filewarden.log',
-	dbFile: 'db.sqlite'
+	dbFile: 'db.sqlite',
+	debug: false
 } as const)
 
 
@@ -25,7 +26,9 @@ function extractArguments(args: string[]): CommandLineArgs {
 	if (args.length > 2 && args[2] !== undefined && args[2].trim() !== '') {
 		returnValue.dbFile = args[2]
 	}
-
+	if (args.length > 3 && args[3] !== undefined && args[3].trim() !== '') {
+		returnValue.debug = args[3] === '--debug'
+	}
 
 	return returnValue
 }
@@ -38,7 +41,8 @@ export function getArguments(): CommandLineArgs {
 		const envArgs: CommandLineArgs = {
 			fileOrFolderPath: process.env["FILE_FOLDER_PATH"],
 			logFile: process.env["LOG_FILE"] || defaultArgs.logFile,
-			dbFile: process.env["DB_FILE"] || defaultArgs.dbFile
+			dbFile: process.env["DB_FILE"] || defaultArgs.dbFile,
+			debug: process.env["DEBUG_MODE"] === 'true'
 		}
 		return envArgs	
 	}

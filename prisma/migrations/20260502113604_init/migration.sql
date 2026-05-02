@@ -8,14 +8,14 @@ CREATE TABLE "cached_result" (
 -- CreateTable
 CREATE TABLE "filecheck_result" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-    "file_name" TEXT NOT NULL,
+    "file_path" TEXT NOT NULL,
     "timestamp" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "hash" BLOB NOT NULL,
     CONSTRAINT "filecheck_result_hash_fkey" FOREIGN KEY ("hash") REFERENCES "cached_result" ("hash") ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
 -- CreateIndex
-CREATE INDEX "filecheck_result_file_name_idx" ON "filecheck_result"("file_name");
+CREATE INDEX "filecheck_result_file_path_idx" ON "filecheck_result"("file_path");
 
 -- CreateIndex
 CREATE INDEX "filecheck_result_hash_idx" ON "filecheck_result"("hash");
