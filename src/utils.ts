@@ -4,7 +4,6 @@ import path from 'path';
 
 import fs from 'fs/promises'
 const defaultArgs = Object.freeze({
-	logFile: 'filewarden.log',
 	dbFile: 'db.sqlite',
 	debug: false
 } as const)
@@ -20,14 +19,11 @@ function extractArguments(args: string[]): CommandLineArgs {
 		throw new Error('Invalid file or folder path provided. Usage: node index.js <fileOrFolderPath>')
 	}
 	const returnValue = { fileOrFolderPath: fileOrFolder, ...defaultArgs } as CommandLineArgs
-	if (args.length > 1 && args[1] !== undefined && args[1].trim() !== '') {
-		returnValue.logFile = args[1]
+	if (args.length > 2 && args[1] !== undefined && args[1].trim() !== '') {
+		returnValue.dbFile = args[1]
 	}
-	if (args.length > 2 && args[2] !== undefined && args[2].trim() !== '') {
-		returnValue.dbFile = args[2]
-	}
-	if (args.length > 3 && args[3] !== undefined && args[3].trim() !== '') {
-		returnValue.debug = args[3] === '--debug'
+	if (args.length > 3 && args[2] !== undefined && args[2].trim() !== '') {
+		returnValue.debug = args[2] === '--debug'
 	}
 
 	return returnValue
@@ -40,7 +36,6 @@ export function getArguments(): CommandLineArgs {
 		}
 		const envArgs: CommandLineArgs = {
 			fileOrFolderPath: process.env["FILE_FOLDER_PATH"],
-			logFile: process.env["LOG_FILE"] || defaultArgs.logFile,
 			dbFile: process.env["DB_FILE"] || defaultArgs.dbFile,
 			debug: process.env["DEBUG_MODE"] === 'true'
 		}
