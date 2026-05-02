@@ -19,10 +19,10 @@ function extractArguments(args: string[]): CommandLineArgs {
 		throw new Error('Invalid file or folder path provided. Usage: node index.js <fileOrFolderPath>')
 	}
 	const returnValue = { fileOrFolderPath: fileOrFolder, ...defaultArgs } as CommandLineArgs
-	if (args.length > 2 && args[1] !== undefined && args[1].trim() !== '') {
+	if (args.length > 1 && args[1] !== undefined && args[1].trim() !== '') {
 		returnValue.dbFile = args[1]
 	}
-	if (args.length > 3 && args[2] !== undefined && args[2].trim() !== '') {
+	if (args.length > 2 && args[2] !== undefined && args[2].trim() !== '') {
 		returnValue.debug = args[2] === '--debug'
 	}
 
