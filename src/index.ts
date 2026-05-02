@@ -16,7 +16,6 @@ await applyFunctionToFilesRecursively(fileOrFolderPath, async (filePath) => {
 		data: {
 			filePath,
 			hash,
-			
 		},
 	})
 })
