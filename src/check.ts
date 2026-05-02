@@ -13,7 +13,7 @@ const { debug } = getArguments()
 const CHECK_COMMANDS: Record<string, CheckCommandData> = {
     "mkv": {
         command: "ffmpeg",
-        argsFn: (filePath) => ["-v", "errror", "-hide_banner", "-nostats", "-xerror", "-i", filePath, "-f", "null", "-"]
+        argsFn: (filePath) => ["-v", "error", "-hide_banner", "-nostats", "-xerror", "-i", filePath, "-f", "null", "-"]
     }
 }
 
@@ -40,13 +40,23 @@ function getCheckCommandForFile(filePath: string): CheckCommandData | null {
                 }
             }
         })
-        child.on('close', (code) => {
+
+        function onCloseHandler(code: number | null) {
+            child.off('close', onCloseHandler)
             if (code === 0) {
                 resolve("PASS")
-            } else {
+            } else {               
                 resolve("FAIL")
             }
+        }
+
+        child.on('close', (code) => {
+            onCloseHandler(code)
         })
+        // sync check for the statuscode, if the event emitted before the callback is called (will not happen normally)
+        if (child.exitCode !== null) {
+            onCloseHandler(child.exitCode)
+        }
     })
 }
 
