@@ -35,10 +35,13 @@ if (target !== 'win32' && target !== 'linux') {
 	throw new Error(`Unsupported target: ${target} (expected 'win32' or 'linux')`)
 }
 
+const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'))
+if (!pkg.name) throw new Error('package.json is missing "name" — needed for launcher filename')
+
 const isWindowsTarget = target === 'win32'
 const platformDir = isWindowsTarget ? 'win' : 'linux'
 const nodeBinaryName = isWindowsTarget ? 'node.exe' : 'node'
-const launcherName = isWindowsTarget ? 'd.bat' : 'd'
+const launcherName = isWindowsTarget ? `${pkg.name}.bat` : pkg.name
 
 const outDir = path.join(root, 'dist', platformDir)
 const appDir = path.join(outDir, 'app')
