@@ -1,2 +1,6 @@
+build
 dist
 node_modules
+src/generated
+.cache
+package-lock.json

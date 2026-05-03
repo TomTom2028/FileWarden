@@ -1,13 +1,12 @@
 import { CommandLineArgs } from './types/commandTypes.ts'
-import "dotenv/config";
-import path from 'path';
+import 'dotenv/config'
+import path from 'path'
 
 import fs from 'fs/promises'
 const defaultArgs = Object.freeze({
 	dbFile: 'db.sqlite',
 	debug: false
 } as const)
-
 
 function extractArguments(args: string[]): CommandLineArgs {
 	if (args.length === 0) {
@@ -30,23 +29,27 @@ function extractArguments(args: string[]): CommandLineArgs {
 }
 
 export function getArguments(): CommandLineArgs {
-	if (process.env["ENV_MODE"] === 'true') {
-		if (!process.env["FILE_FOLDER_PATH"]) {
-			throw new Error('No file or folder path provided in environment variables. Please set FILE_FOLDER_PATH in your .env file')
+	if (process.env['ENV_MODE'] === 'true') {
+		if (!process.env['FILE_FOLDER_PATH']) {
+			throw new Error(
+				'No file or folder path provided in environment variables. Please set FILE_FOLDER_PATH in your .env file'
+			)
 		}
 		const envArgs: CommandLineArgs = {
-			fileOrFolderPath: process.env["FILE_FOLDER_PATH"],
-			dbFile: process.env["DB_FILE"] || defaultArgs.dbFile,
-			debug: process.env["DEBUG_MODE"] === 'true'
+			fileOrFolderPath: process.env['FILE_FOLDER_PATH'],
+			dbFile: process.env['DB_FILE'] ?? defaultArgs.dbFile,
+			debug: process.env['DEBUG_MODE'] === 'true'
 		}
-		return envArgs	
+		return envArgs
 	}
 	const args = process.argv.slice(2)
 	return extractArguments(args)
 }
 
-
-export async function applyFunctionToFilesRecursively(fileOrFolderPath: string, func: (filePath: string) => void | Promise<void>): Promise<void> {
+export async function applyFunctionToFilesRecursively(
+	fileOrFolderPath: string,
+	func: (filePath: string) => void | Promise<void>
+): Promise<void> {
 	const status = await fs.stat(fileOrFolderPath)
 	if (status.isDirectory()) {
 		const entries = await fs.readdir(fileOrFolderPath)

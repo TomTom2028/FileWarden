@@ -24,8 +24,8 @@ const root = path.resolve(import.meta.dirname, '..')
 const { values: args } = parseArgs({
 	options: {
 		target: { type: 'string' },
-		'node-bin': { type: 'string' },
-	},
+		'node-bin': { type: 'string' }
+	}
 })
 
 const target = args.target ?? process.platform
@@ -90,7 +90,7 @@ if (target === process.platform) {
 		execSync(`"${process.execPath}" "${prebuildInstallBin}" --platform=${target} --arch=x64`, {
 			cwd: pkgPath,
 			stdio: 'inherit',
-			env,
+			env
 		})
 	}
 }
@@ -101,7 +101,9 @@ console.log('Tracing reachable files with @vercel/nft...')
 // optional peer on `prisma` (the CLI) — @prisma/engines, @prisma/studio-core,
 // @prisma/dev, effect, mysql2, postgres, react-dom, etc. — without resorting
 // to --legacy-peer-deps. Also picks just the sqlite Prisma WASM dialect.
-const { nodeFileTrace } = await import(`${pathToFileURL(path.join(root, 'node_modules', '@vercel', 'nft', 'out', 'index.js')).href}`)
+const { nodeFileTrace } = await import(
+	`${pathToFileURL(path.join(root, 'node_modules', '@vercel', 'nft', 'out', 'index.js')).href}`
+)
 // nft resolves entry paths against process.cwd() (not against `base`), so we
 // pass absolute paths inside appDir to make sure it traces the staged copy
 // and its node_modules — not the project root's.
@@ -123,7 +125,10 @@ if (target !== process.platform) {
 
 let removed = 0
 walkFiles(path.join(appDir, 'node_modules'), (full) => {
-	if (!keep.has(full)) { fs.rmSync(full); removed++ }
+	if (!keep.has(full)) {
+		fs.rmSync(full)
+		removed++
+	}
 })
 removeEmptyDirs(path.join(appDir, 'node_modules'))
 console.log(`  kept ${keep.size}, removed ${removed} files`)
@@ -192,7 +197,9 @@ function findPrebuildInstallPackages(modulesDir) {
 				try {
 					const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8'))
 					if (pkg.scripts?.install?.includes('prebuild-install')) found.push(pkgDir)
-				} catch {}
+				} catch {
+					// Skip packages with unreadable / malformed package.json.
+				}
 			}
 			walk(path.join(pkgDir, 'node_modules'))
 		}

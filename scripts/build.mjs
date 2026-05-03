@@ -88,7 +88,9 @@ if (isWindows) {
 		} else if (hasCommand('python3')) {
 			execSync(`python3 -m zipfile -e "${archivePath}" "${cacheDir}"`, { stdio: 'inherit' })
 		} else {
-			throw new Error('Need `unzip` or `python3` to extract the Windows node archive. Install one (e.g. `sudo apt-get install unzip`).')
+			throw new Error(
+				'Need `unzip` or `python3` to extract the Windows node archive. Install one (e.g. `sudo apt-get install unzip`).'
+			)
 		}
 		fs.rmSync(archivePath, { force: true })
 	}

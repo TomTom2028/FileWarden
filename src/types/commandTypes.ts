@@ -1,5 +1,5 @@
 export type CommandLineArgs = {
 	fileOrFolderPath: string
-	dbFile: string,
+	dbFile: string
 	debug: boolean
 }
