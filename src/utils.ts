@@ -55,6 +55,7 @@ export async function applyFunctionToFilesRecursively(fileOrFolderPath: string, 
 			await applyFunctionToFilesRecursively(fullPath, func)
 		}
 	} else {
-		 await func(fileOrFolderPath)
+		const absolutePath = path.resolve(fileOrFolderPath) // more consistent path handling
+		await func(absolutePath)
 	}
 }
