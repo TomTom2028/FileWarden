@@ -12,13 +12,28 @@ const mapOfResults: Record<string, FilecheckResultValue> = {}
 await applyFunctionToFilesRecursively(fileOrFolderPath, async (filePath) => {
 	const hash = await hasher.hashFile(filePath)
 	const checkFileResult = await checkFile(filePath, hash)
-	console.log(`Check result for file ${filePath}:`, checkFileResult)
-	mapOfResults[filePath] = checkFileResult
+	console.log(`Check result for file ${filePath}:`, checkFileResult.result)
+	mapOfResults[filePath] = checkFileResult.result
 
 	await prisma.filecheckResult.create({
 		data: {
-			filePath,
-			hash
+			file: {
+				connectOrCreate: {
+					where: {
+						path: filePath
+					},
+					create: {
+						path: filePath,
+					}
+				},
+				
+			},
+			cached: {
+				connect: {
+					id: checkFileResult.id
+				}
+			}
+			
 		}
 	})
 })

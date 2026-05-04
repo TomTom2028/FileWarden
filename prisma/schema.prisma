@@ -21,23 +21,31 @@ enum FilecheckResultValue {
 }
 
 model CachedResult {
-  hash      Bytes                @id
+  id        Int                  @id @default(autoincrement())
+  hash      Bytes                @unique
   result    FilecheckResultValue
   firstSeen DateTime             @default(now()) @map("first_seen")
   history   FilecheckResult[]
 
+  @@index([hash])
   @@map("cached_result")
 }
 
 model FilecheckResult {
   id        Int          @id @default(autoincrement())
-  filePath  String       @map("file_path")
+  fileId    Int          @map("file_id")
   timestamp DateTime     @default(now())
-  hash      Bytes
-  cached    CachedResult @relation(fields: [hash], references: [hash])
+  hashId    Int          @map("hash_id")
+  cached    CachedResult @relation(fields: [hashId], references: [id])
+  file      File         @relation(fields: [fileId], references: [id])
 
-  @@index([filePath])
-  @@index([hash])
-  @@index([timestamp])
   @@map("filecheck_result")
+}
+
+model File {
+  id      Int               @id @default(autoincrement())
+  path    String            @unique
+  results FilecheckResult[]
+
+  @@map("file")
 }

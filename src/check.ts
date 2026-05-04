@@ -58,7 +58,7 @@ async function checkFileRaw(filePath: string): Promise<FilecheckResultValue> {
 	})
 }
 
-export async function checkFile(filePath: string, hash: Hash): Promise<FilecheckResultValue> {
+export async function checkFile(filePath: string, hash: Hash) {
 	if (debug) {
 		console.log(`Hash for file ${filePath}:`, Buffer.from(hash).toString('hex'))
 	}
@@ -71,14 +71,14 @@ export async function checkFile(filePath: string, hash: Hash): Promise<Filecheck
 		console.log(`Cached result for file ${filePath}:`, cachedResult)
 	}
 	if (cachedResult) {
-		return cachedResult.result
+		return cachedResult
 	}
 	const checkResult = await checkFileRaw(filePath)
-	await prisma.cachedResult.create({
+	const newCachedResult = await prisma.cachedResult.create({
 		data: {
 			hash,
 			result: checkResult
 		}
 	})
-	return checkResult
+	return newCachedResult
 }
