@@ -1,0 +1,13 @@
+{
+	// Scripts are run directly by Node via runtime type-stripping (no compilation),
+	// so this config exists only for type-checking and the typescript-eslint project service.
+	"extends": "../tsconfig.json",
+	"compilerOptions": {
+		"rootDir": ".",
+		"outDir": "../build/scripts-typecheck",
+		"noEmit": true,
+		"allowImportingTsExtensions": false,
+		"rewriteRelativeImportExtensions": false
+	},
+	"include": ["**/*.ts", "**/*.mts"]
+}

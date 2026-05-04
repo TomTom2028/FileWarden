@@ -6,7 +6,7 @@
 //        Windows host → Linux dist via WSL using a portable Linux node
 //        Linux host   → Windows dist via npm cross-install with a portable node.exe
 //
-// To build only the host platform, run `node scripts/package.mjs` directly.
+// To build only the host platform, run `node scripts/package.ts` directly.
 
 import { execSync } from 'node:child_process'
 import fs from 'node:fs'
@@ -18,9 +18,14 @@ const cacheDir = path.join(root, '.cache')
 const isWindows = process.platform === 'win32'
 const nodeVersion = process.versions.node
 
-function hasCommand(cmd) {
+function hasCommand(cmd: string): boolean {
 	try {
-		execSync(isWindows ? `where ${cmd}` : `command -v ${cmd}`, { stdio: 'ignore', shell: !isWindows })
+		// `where` on Windows is a real exe; `command -v` on Unix is a shell builtin and needs a shell.
+		if (isWindows) {
+			execSync(`where ${cmd}`, { stdio: 'ignore' })
+		} else {
+			execSync(`command -v ${cmd}`, { stdio: 'ignore', shell: '/bin/sh' })
+		}
 		return true
 	} catch {
 		return false
@@ -38,12 +43,12 @@ if (fs.existsSync(distDir)) {
 
 console.log('\n=== TypeScript compile ===')
 // Invoke tsc via its JS entry point so it works whether or not node_modules/.bin
-// is on PATH (npm run sets it; bare `node scripts/build.mjs` doesn't).
+// is on PATH (npm run sets it; bare `node scripts/build.ts` doesn't).
 const tscJs = path.join(root, 'node_modules', 'typescript', 'bin', 'tsc')
 execSync(`node "${tscJs}"`, { cwd: root, stdio: 'inherit' })
 
 console.log('\n=== Packaging native platform ===')
-execSync('node scripts/package.mjs', { cwd: root, stdio: 'inherit' })
+execSync('node scripts/package.ts', { cwd: root, stdio: 'inherit' })
 
 if (isWindows) {
 	// Cross-build Linux via WSL using a portable Linux node — no node install needed in WSL.
@@ -63,11 +68,11 @@ if (isWindows) {
 	}
 
 	console.log('\n=== Packaging Linux via WSL ===')
-	// Run package.mjs inside WSL with the portable Linux node. process.execPath
+	// Run package.ts inside WSL with the portable Linux node. process.execPath
 	// inside that script then resolves to the portable node, which gets copied
 	// into dist/linux/app/node.
 	const wslNodePath = `.cache/${linuxNodeName}/bin/node`
-	execSync(`wsl --cd "${root}" -- "${wslNodePath}" scripts/package.mjs`, { stdio: 'inherit' })
+	execSync(`wsl --cd "${root}" -- "${wslNodePath}" scripts/package.ts`, { stdio: 'inherit' })
 } else {
 	// Cross-build Windows: download a portable node.exe and ask npm to install
 	// for win32-x64 (relies on prebuild-install honouring npm_config_target_*
@@ -96,7 +101,7 @@ if (isWindows) {
 	}
 
 	console.log('\n=== Cross-packaging Windows ===')
-	execSync(`node scripts/package.mjs --target=win32 --node-bin="${winNodeBin}"`, { cwd: root, stdio: 'inherit' })
+	execSync(`node scripts/package.ts --target=win32 --node-bin="${winNodeBin}"`, { cwd: root, stdio: 'inherit' })
 }
 
 console.log('\nAll builds complete.')

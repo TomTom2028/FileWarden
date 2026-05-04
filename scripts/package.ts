@@ -11,13 +11,15 @@
 //
 // Defaults: target = host platform, embedded node = the running node.
 // Cross-build (e.g. Linux host → Windows dist):
-//   node scripts/package.mjs --target=win32 --node-bin=/path/to/node.exe
+//   node scripts/package.ts --target=win32 --node-bin=/path/to/node.exe
 
 import { execSync } from 'node:child_process'
 import { parseArgs } from 'node:util'
 import { pathToFileURL } from 'node:url'
 import fs from 'node:fs'
 import path from 'node:path'
+import { z } from 'zod'
+import type { nodeFileTrace as NodeFileTrace } from '@vercel/nft'
 
 const root = path.resolve(import.meta.dirname, '..')
 
@@ -35,8 +37,14 @@ if (target !== 'win32' && target !== 'linux') {
 	throw new Error(`Unsupported target: ${target} (expected 'win32' or 'linux')`)
 }
 
-const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'))
-if (!pkg.name) throw new Error('package.json is missing "name" — needed for launcher filename')
+// Only validate fields we read — package.json has plenty more we don't care about.
+const PackageJsonSchema = z.object({
+	name: z.string(),
+	scripts: z.record(z.string(), z.string()).optional()
+})
+type PackageJson = z.infer<typeof PackageJsonSchema>
+
+const pkg: PackageJson = PackageJsonSchema.parse(JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')))
 
 const isWindowsTarget = target === 'win32'
 const platformDir = isWindowsTarget ? 'win' : 'linux'
@@ -61,7 +69,7 @@ console.log(`Installing production dependencies (target ${target})...`)
 // Use the running (host) node's bundled npm. nodeBin may differ — that's just
 // the binary we embed; we don't execute it here.
 const hostNodeDir = path.dirname(process.execPath)
-const env = { ...process.env, PATH: `${hostNodeDir}${path.delimiter}${process.env.PATH ?? ''}` }
+const env: NodeJS.ProcessEnv = { ...process.env, PATH: `${hostNodeDir}${path.delimiter}${process.env['PATH'] ?? ''}` }
 
 if (target === process.platform) {
 	execSync('npm ci --omit=dev', { cwd: appDir, stdio: 'inherit', env })
@@ -71,8 +79,8 @@ if (target === process.platform) {
 	// which fails for a foreign-platform binary. --os/--cpu filter optional deps;
 	// npm_config_platform/arch get propagated to scripts and to node-gyp-build's
 	// runtime resolver.
-	env.npm_config_platform = target
-	env.npm_config_arch = 'x64'
+	env['npm_config_platform'] = target
+	env['npm_config_arch'] = 'x64'
 	execSync(`npm ci --omit=dev --ignore-scripts --os=${target} --cpu=x64`, { cwd: appDir, stdio: 'inherit', env })
 
 	// For packages whose install script normally runs prebuild-install (e.g.
@@ -101,15 +109,14 @@ console.log('Tracing reachable files with @vercel/nft...')
 // optional peer on `prisma` (the CLI) — @prisma/engines, @prisma/studio-core,
 // @prisma/dev, effect, mysql2, postgres, react-dom, etc. — without resorting
 // to --legacy-peer-deps. Also picks just the sqlite Prisma WASM dialect.
-const { nodeFileTrace } = await import(
-	`${pathToFileURL(path.join(root, 'node_modules', '@vercel', 'nft', 'out', 'index.js')).href}`
-)
+const nftIndex = path.join(root, 'node_modules', '@vercel', 'nft', 'out', 'index.js')
+const nodeFileTrace = await loadNftEntry(nftIndex)
 // nft resolves entry paths against process.cwd() (not against `base`), so we
 // pass absolute paths inside appDir to make sure it traces the staged copy
 // and its node_modules — not the project root's.
 const entries = ['build/index.js', 'build/migrate.js', 'build/prisma.js'].map((e) => path.join(appDir, e))
 const { fileList, warnings } = await nodeFileTrace(entries, { base: appDir })
-for (const w of warnings) console.warn(`  nft: ${String(w.message ?? w).split('\n')[0]}`)
+for (const w of warnings) console.warn(`  nft: ${w.message.split('\n')[0]}`)
 
 const keep = new Set([...fileList].map((f) => path.resolve(appDir, f)))
 
@@ -118,7 +125,7 @@ if (target !== process.platform) {
 	// packages (xxhash-addon ships every prebuild and selects at runtime via
 	// process.platform). For cross-builds, keep every prebuilds/ file so the
 	// target's binary survives. Cheap — total ~1MB.
-	walkFiles(path.join(appDir, 'node_modules'), (full, name, dir) => {
+	walkFiles(path.join(appDir, 'node_modules'), (full, _name, dir) => {
 		if (dir.split(path.sep).includes('prebuilds')) keep.add(full)
 	})
 }
@@ -161,7 +168,9 @@ if (isWindowsTarget) {
 
 console.log(`\nDone. Run: ${launcherPath} <args>`)
 
-function walkFiles(dir, fn) {
+type WalkVisitor = (fullPath: string, name: string, parentDir: string) => void
+
+function walkFiles(dir: string, fn: WalkVisitor): void {
 	if (!fs.existsSync(dir)) return
 	for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
 		const full = path.join(dir, entry.name)
@@ -170,7 +179,7 @@ function walkFiles(dir, fn) {
 	}
 }
 
-function removeEmptyDirs(dir) {
+function removeEmptyDirs(dir: string): void {
 	if (!fs.existsSync(dir)) return
 	for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
 		if (entry.isDirectory()) removeEmptyDirs(path.join(dir, entry.name))
@@ -178,12 +187,12 @@ function removeEmptyDirs(dir) {
 	if (fs.readdirSync(dir).length === 0) fs.rmdirSync(dir)
 }
 
-function findPrebuildInstallPackages(modulesDir) {
-	const found = []
+function findPrebuildInstallPackages(modulesDir: string): string[] {
+	const found: string[] = []
 	walk(modulesDir)
 	return found
 
-	function walk(dir) {
+	function walk(dir: string): void {
 		if (!fs.existsSync(dir)) return
 		for (const name of fs.readdirSync(dir)) {
 			if (name.startsWith('.')) continue
@@ -195,13 +204,24 @@ function findPrebuildInstallPackages(modulesDir) {
 			const pkgJsonPath = path.join(pkgDir, 'package.json')
 			if (fs.existsSync(pkgJsonPath)) {
 				try {
-					const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8'))
-					if (pkg.scripts?.install?.includes('prebuild-install')) found.push(pkgDir)
+					const parsed = PackageJsonSchema.partial().parse(JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8')))
+					if (parsed.scripts?.['install']?.includes('prebuild-install')) found.push(pkgDir)
 				} catch {
-					// Skip packages with unreadable / malformed package.json.
+					// Skip packages with unreadable / malformed / unexpected-shape package.json.
 				}
 			}
 			walk(path.join(pkgDir, 'node_modules'))
 		}
 	}
+}
+
+// We import @vercel/nft by absolute file:// URL rather than by package name so the script
+// stays robust if cwd or NODE_PATH is unusual during cross-builds. The dynamic import is
+// untyped (`any`), so we narrow it to nft's known module shape inside this wrapper — keeping
+// the cast localised and explained.
+async function loadNftEntry(absoluteIndexPath: string): Promise<typeof NodeFileTrace> {
+	const url = pathToFileURL(absoluteIndexPath).href
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- runtime shape matches @vercel/nft's package entry; cast is the boundary between dynamic-imported any and our typed usage
+	const mod = (await import(url)) as { nodeFileTrace: typeof NodeFileTrace }
+	return mod.nodeFileTrace
 }

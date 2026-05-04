@@ -17,7 +17,7 @@
 	"scripts": {
 		"start:dev": "node build/index.js",
 		"test": "echo \"Error: no test specified\" && exit 1",
-		"build": "node scripts/build.mjs",
+		"build": "node scripts/build.ts",
 		"build:dev": "tsc",
 		"db:generate": "prisma generate",
 		"lint": "eslint .",
