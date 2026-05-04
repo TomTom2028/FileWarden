@@ -18,17 +18,17 @@ await applyFunctionToFilesRecursively(fileOrFolderPath, async (filePath) => {
 	await prisma.filecheckResult.create({
 		data: {
 			filePath,
-			hash,
-		},
+			hash
+		}
 	})
 })
 
 console.log('All files processed. Summary of results:')
 console.log('Amount of files processed:', Object.keys(mapOfResults).length)
 
-const allPASSResults = Object.entries(mapOfResults).filter(([_, result]) => result === "PASS")
-const allNOKResults = Object.entries(mapOfResults).filter(([_, result]) => result === "FAIL")
-const allUNKNOWNResults = Object.entries(mapOfResults).filter(([_, result]) => result === "UNKNOWN")
+const allPASSResults = Object.entries(mapOfResults).filter(([, result]) => result === 'PASS')
+const allNOKResults = Object.entries(mapOfResults).filter(([, result]) => result === 'FAIL')
+const allUNKNOWNResults = Object.entries(mapOfResults).filter(([, result]) => result === 'UNKNOWN')
 
 console.log('Amount of files that passed the check:', allPASSResults.length)
 console.log('Amount of files that failed the check:', allNOKResults.length)
@@ -40,5 +40,8 @@ for (const [filePath, result] of allUNKNOWNResults) {
 	console.log(`File ${filePath} has unknown check result: ${result}`)
 }
 
-console.log('Percentage of files that passed the check:', (allPASSResults.length / Object.keys(mapOfResults).length * 100).toFixed(2) + '%')
+console.log(
+	'Percentage of files that passed the check:',
+	((allPASSResults.length / Object.keys(mapOfResults).length) * 100).toFixed(2) + '%'
+)
 console.log('FileWarden finished processing all files.')

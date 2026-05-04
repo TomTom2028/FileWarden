@@ -2,6 +2,7 @@ import path from 'node:path'
 import fs from 'node:fs'
 import crypto from 'node:crypto'
 import Database from 'better-sqlite3'
+import { z } from 'zod'
 
 // `import.meta.url` is avoided — pkg's bytecode compiler fails on it and then
 // ships an ESM-to-CJS-rewritten source that Node refuses to load under "type":"module".
@@ -27,9 +28,8 @@ CREATE TABLE IF NOT EXISTS "_prisma_migrations" (
 )
 `
 
-interface AppliedRow {
-	migration_name: string
-}
+const AppliedRowSchema = z.object({ migration_name: z.string() })
+const AppliedRowsSchema = z.array(AppliedRowSchema)
 
 export function runMigrations(dbFile: string): void {
 	const db = new Database(dbFile)
@@ -42,9 +42,8 @@ export function runMigrations(dbFile: string): void {
 			.map((e) => e.name)
 			.sort()
 
-		const appliedRows = db
-			.prepare('SELECT migration_name FROM _prisma_migrations WHERE finished_at IS NOT NULL')
-			.all() as AppliedRow[]
+		const rawRows = db.prepare('SELECT migration_name FROM _prisma_migrations WHERE finished_at IS NOT NULL').all()
+		const appliedRows = AppliedRowsSchema.parse(rawRows)
 		const applied = new Set(appliedRows.map((r) => r.migration_name))
 
 		const insert = db.prepare(
