@@ -1,5 +1,5 @@
 import { execFile } from 'child_process'
-import { FilecheckResultValue } from './generated/prisma/client.ts'
+import { CachedResult, FilecheckResultValue } from './generated/prisma/client.ts'
 import { getArguments } from './utils.ts'
 import { Hash } from './hash.ts'
 import { prisma } from './prisma.ts'
@@ -58,7 +58,7 @@ async function checkFileRaw(filePath: string): Promise<FilecheckResultValue> {
 	})
 }
 
-export async function checkFile(filePath: string, hash: Hash) {
+export async function checkFile(filePath: string, hash: Hash): Promise<CachedResult> {
 	if (debug) {
 		console.log(`Hash for file ${filePath}:`, Buffer.from(hash).toString('hex'))
 	}
