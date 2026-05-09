@@ -9,7 +9,9 @@
 -- CreateTable
 CREATE TABLE "run" (
     "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-    "started_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "started_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "run_status" TEXT NOT NULL DEFAULT 'PARTIAL',
+    "finished_at" DATETIME
 );
 
 -- Back-fill: create a single "pre-migration" run only if there is existing data to attach to it.
