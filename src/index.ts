@@ -11,7 +11,14 @@ const hasher = new Hasher()
 const mapOfResults: Record<string, FilecheckResultValue> = {}
 
 const allFilePaths = await getAllPathsRecursively(fileOrFolderPath).then((paths) => getAugmentedFilePaths(paths))
-allFilePaths.sort((a, b) => a.priority - b.priority)
+allFilePaths.sort((a, b) => {
+	const pritorityDiff = b.priority - a.priority
+	if (pritorityDiff !== 0) {
+		return pritorityDiff
+	}
+	// fallback to alphabetical sorting to ensure a determinstic order (for nicencess)
+	return a.path.localeCompare(b.path)
+})
 
 const currentRun = await prisma.run.create({})
 
