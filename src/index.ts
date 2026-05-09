@@ -10,11 +10,10 @@ const hasher = new Hasher()
 
 const mapOfResults: Record<string, FilecheckResultValue> = {}
 
-const allFilePaths = await getAllPathsRecursively(fileOrFolderPath).then(paths => getAugmentedFilePaths(paths))
+const allFilePaths = await getAllPathsRecursively(fileOrFolderPath).then((paths) => getAugmentedFilePaths(paths))
 allFilePaths.sort((a, b) => a.priority - b.priority)
 
 const currentRun = await prisma.run.create({})
-
 
 async function toApplyFunctiontoFile(filePath: AugmentedFilePath) {
 	const currentHash = await hasher.hashFile(filePath.path)
@@ -30,10 +29,9 @@ async function toApplyFunctiontoFile(filePath: AugmentedFilePath) {
 						path: filePath.path
 					},
 					create: {
-						path: filePath.path,
+						path: filePath.path
 					}
-				},
-				
+				}
 			},
 			cached: {
 				connect: {
@@ -45,7 +43,6 @@ async function toApplyFunctiontoFile(filePath: AugmentedFilePath) {
 					id: currentRun.id
 				}
 			}
-			
 		}
 	})
 }
@@ -60,12 +57,10 @@ await prisma.run.update({
 		id: currentRun.id
 	},
 	data: {
-	runStatus: 'COMPLETE',
-	finishedAt: new Date()
+		runStatus: 'COMPLETE',
+		finishedAt: new Date()
 	}
 })
-
-
 
 console.log('All files processed. Summary of results:')
 console.log('Amount of files processed:', Object.keys(mapOfResults).length)

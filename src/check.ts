@@ -67,10 +67,10 @@ export async function checkFile(augmentedFilePath: AugmentedFilePath, hash: Hash
 	if (hash !== cachedResult?.hash) {
 		// the hash of the latest run is differnt, but maybe we already have a cached duplicate of this file
 		cachedResult = await prisma.cachedResult.findFirst({
-		where: {
-			hash
-		}
-	})
+			where: {
+				hash
+			}
+		})
 	}
 
 	if (debug) {

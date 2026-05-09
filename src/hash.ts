@@ -11,7 +11,7 @@ export default class Hasher {
 	}
 
 	public async hashFile(filePath: string): Promise<Hash> {
-		const stream = syncFs.createReadStream(filePath, {highWaterMark: 1024 * 1024}) // 1MB chunk size
+		const stream = syncFs.createReadStream(filePath, { highWaterMark: 1024 * 1024 }) // 1MB chunk size
 		for await (const chunk of stream) {
 			if (!Buffer.isBuffer(chunk)) {
 				throw new TypeError(`Expected Buffer chunk from binary read stream, got ${typeof chunk}`)
