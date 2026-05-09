@@ -46,6 +46,19 @@ export function getArguments(): CommandLineArgs {
 	return extractArguments(args)
 }
 
+export async function getAllPathsRecursively(fileOrFolderPath: string): Promise<string[]> {
+	const status = await fs.stat(fileOrFolderPath)
+	if (status.isDirectory()) {
+		const entries = await fs.readdir(fileOrFolderPath)
+		const filePaths = await Promise.all(entries.map(entry => getAllPathsRecursively(path.join(fileOrFolderPath, entry))))
+		return filePaths.flat()
+	} else {
+		const absolutePath = path.resolve(fileOrFolderPath) // more consistent path handling
+		return [absolutePath]
+	}
+}
+
+
 export async function applyFunctionToFilesRecursively(
 	fileOrFolderPath: string,
 	func: (filePath: string) => void | Promise<void>

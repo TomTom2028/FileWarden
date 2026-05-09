@@ -47,5 +47,6 @@ model File {
   path    String            @unique
   results FilecheckResult[]
 
+  @@index([path])
   @@map("file")
 }

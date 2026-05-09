@@ -1,16 +1,21 @@
-import { applyFunctionToFilesRecursively, getArguments } from './utils.ts'
+import { getAllPathsRecursively, getArguments } from './utils.ts'
 import { prisma } from './prisma.ts'
 import Hasher from './hash.ts'
 import { checkFile } from './check.ts'
 import { FilecheckResultValue } from './generated/prisma/browser.ts'
+import { getPrioritizedFilePathArray } from './priority.ts'
 
 const { fileOrFolderPath } = getArguments()
 const hasher = new Hasher()
 
 const mapOfResults: Record<string, FilecheckResultValue> = {}
 
-await applyFunctionToFilesRecursively(fileOrFolderPath, async (filePath) => {
-	const hash = await hasher.hashFile(filePath)
+const allFilePaths = await getAllPathsRecursively(fileOrFolderPath)
+const { fastPaths, slowPaths } = await getPrioritizedFilePathArray(allFilePaths)
+
+
+async function toApplyFunctiontoFile(filePath: string) {
+const hash = await hasher.hashFile(filePath)
 	const checkFileResult = await checkFile(filePath, hash)
 	console.log(`Check result for file ${filePath}:`, checkFileResult.result)
 	mapOfResults[filePath] = checkFileResult.result
@@ -36,7 +41,15 @@ await applyFunctionToFilesRecursively(fileOrFolderPath, async (filePath) => {
 			
 		}
 	})
-})
+}
+
+for (const filePath of fastPaths) {
+	await toApplyFunctiontoFile(filePath)
+}
+for (const filePath of slowPaths) {
+	await toApplyFunctiontoFile(filePath)
+}
+
 
 console.log('All files processed. Summary of results:')
 console.log('Amount of files processed:', Object.keys(mapOfResults).length)
