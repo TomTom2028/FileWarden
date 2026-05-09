@@ -13,6 +13,8 @@ const mapOfResults: Record<string, FilecheckResultValue> = {}
 const allFilePaths = await getAllPathsRecursively(fileOrFolderPath)
 const { fastPaths, slowPaths } = await getPrioritizedFilePathArray(allFilePaths)
 
+const currentRun = await prisma.run.create({})
+
 
 async function toApplyFunctiontoFile(filePath: string) {
 const hash = await hasher.hashFile(filePath)
@@ -37,6 +39,11 @@ const hash = await hasher.hashFile(filePath)
 				connect: {
 					id: checkFileResult.id
 				}
+			},
+			run: {
+				connect: {
+					id: currentRun.id
+				}
 			}
 			
 		}
@@ -49,6 +56,19 @@ for (const filePath of fastPaths) {
 for (const filePath of slowPaths) {
 	await toApplyFunctiontoFile(filePath)
 }
+
+
+// we don't 'set' the og run because is useless
+await prisma.run.update({
+	where: {
+		id: currentRun.id
+	},
+	data: {
+	runStatus: 'COMPLETE',
+	finishedAt: new Date()
+	}
+})
+
 
 
 console.log('All files processed. Summary of results:')

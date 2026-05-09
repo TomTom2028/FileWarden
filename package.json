@@ -20,7 +20,7 @@
 		"build": "node scripts/build.ts",
 		"build:dev": "tsc",
 		"db:generate": "prisma generate",
-		"lint": "eslint .",
+		"lint": "tsc --noEmit && eslint . && prettier --check .",
 		"lint:fix": "eslint . --fix",
 		"format": "prettier --write .",
 		"format:check": "prettier --check ."

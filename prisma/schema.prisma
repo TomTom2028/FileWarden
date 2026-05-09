@@ -38,6 +38,8 @@ model FilecheckResult {
   hashId    Int          @map("hash_id")
   cached    CachedResult @relation(fields: [hashId], references: [id])
   file      File         @relation(fields: [fileId], references: [id])
+  run       Run          @relation(fields: [runId], references: [id])
+  runId     Int
 
   @@map("filecheck_result")
 }
@@ -49,4 +51,21 @@ model File {
 
   @@index([path])
   @@map("file")
+}
+
+enum RunStatus {
+  PARTIAL
+  COMPLETE
+
+  @@map("run_status")
+}
+
+model Run {
+  id         Int               @id @default(autoincrement())
+  startedAt  DateTime          @default(now()) @map("started_at")
+  results    FilecheckResult[]
+  runStatus  RunStatus         @default(PARTIAL) @map("run_status")
+  finishedAt DateTime?         @map("finished_at")
+
+  @@map("run")
 }
