@@ -1,13 +1,13 @@
 import xhashAddon from 'xxhash-addon'
 import syncFs from 'fs'
-const { XXHash3 } = xhashAddon
-
+const { XXHash128 } = xhashAddon
+import type { XXHash } from 'xxhash-addon'
 export type Hash = Uint8Array<ArrayBuffer>
 export default class Hasher {
-	private bufferedXHash3: xhashAddon.XXHash3
+	private bufferedXHash: XXHash
 
 	constructor() {
-		this.bufferedXHash3 = new XXHash3(Buffer.from([0, 0, 0, 0]))
+		this.bufferedXHash = new XXHash128(Buffer.from([0, 0, 0, 0]))
 	}
 
 	public async hashFile(filePath: string): Promise<Hash> {
@@ -16,10 +16,10 @@ export default class Hasher {
 			if (!Buffer.isBuffer(chunk)) {
 				throw new TypeError(`Expected Buffer chunk from binary read stream, got ${typeof chunk}`)
 			}
-			this.bufferedXHash3.update(chunk)
+			this.bufferedXHash.update(chunk)
 		}
-		const hash = new Uint8Array(this.bufferedXHash3.digest())
-		this.bufferedXHash3.reset()
+		const hash = new Uint8Array(this.bufferedXHash.digest())
+		this.bufferedXHash.reset()
 		return hash
 	}
 }
