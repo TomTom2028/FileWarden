@@ -4,20 +4,101 @@ import { getArguments } from './utils.ts'
 import { Hash } from './hash.ts'
 import { prisma } from './prisma.ts'
 import { AugmentedFilePath } from './augmenter.ts'
-type CheckCommandData = {
-	command: string
-	argsFn: (filePath: string) => string[]
-}
+import z from 'zod'
 const { debug } = getArguments()
 
-const CHECK_COMMANDS: Record<string, CheckCommandData> = {
-	mkv: {
-		command: 'ffmpeg',
-		argsFn: (filePath) => ['-v', 'error', '-hide_banner', '-nostats', '-xerror', '-i', filePath, '-f', 'null', '-']
+function defaultValidator(_: string, __: string, exitCode: number, filePath: string): FilecheckResultValue {
+	if (exitCode === 0) {
+		return 'PASS'
+	} else {
+		if (debug) {
+			console.error(`Check command failed for file ${filePath} with exit code ${exitCode}`)
+		}
+		return 'FAIL'
 	}
 }
 
-function getCheckCommandForFile(filePath: string): CheckCommandData | null {
+function formatExitCode(exitCode: unknown): number {
+	if (typeof exitCode === 'number') {
+		return exitCode
+	}
+	if (typeof exitCode === 'string') {
+		const parsed = parseInt(exitCode, 10)
+		if (!isNaN(parsed)) {
+			return parsed
+		}
+	}
+	return -1 // default to -1 if exit code is not a number or string
+}
+
+const FfprobeLengthSchema = z.object({
+	streams: z.array(
+		z.object({
+			nb_read_packets: z.string(),
+			r_frame_rate: z.string()
+		})
+	),
+	format: z.object({
+		duration: z.string()
+	})
+})
+
+function isArrayNonEmpty<T>(arr: T[]): arr is [T, ...T[]] {
+	return arr.length > 0
+}
+
+type CheckCommandData = {
+	command: string
+	argsFn: (filePath: string) => string[]
+	validator: (stdout: string, stderr: string, exitCode: number, filePath: string) => FilecheckResultValue
+}
+
+// sorted, earliest in array = executed first
+const CHECK_COMMANDS: Record<string, CheckCommandData[]> = {
+	mkv: [
+		{
+			command: 'ffmpeg',
+			argsFn: (filePath) => ['-v', 'error', '-hide_banner', '-nostats', '-xerror', '-i', filePath, '-f', 'null', '-'],
+			validator: defaultValidator
+		},
+		{
+			command: 'ffprobe',
+			argsFn: (filePath) => [
+				'-v',
+				'error',
+				'-select_streams',
+				'v:0',
+				'-count_packets',
+				'-show_entries',
+				'stream=nb_read_packets,r_frame_rate:format=duration',
+				'-of',
+				'json',
+				filePath
+			],
+			validator: (stdout) => {
+				const data = FfprobeLengthSchema.parse(JSON.parse(stdout))
+				const duration = parseFloat(data.format.duration)
+				if (!isArrayNonEmpty(data.streams)) {
+					return 'FAIL'
+				}
+				const packets = parseInt(data.streams[0].nb_read_packets, 10)
+				const [num, den] = data.streams[0].r_frame_rate.split('/').map(Number)
+				if (num === undefined || den === undefined) {
+					return 'FAIL'
+				}
+				const fps = num / den
+				const videoDur = packets / fps
+				const pct = (videoDur / duration) * 100
+				if (!Number.isFinite(pct) || pct < 99) {
+					return 'FAIL'
+				}
+				return 'PASS'
+			}
+		}
+	]
+}
+
+function getCheckCommandsForFile(filePath: string): CheckCommandData[] | null {
 	const extension = filePath.split('.').pop()?.toLowerCase()
 	if (extension && CHECK_COMMANDS[extension]) {
 		return CHECK_COMMANDS[extension]
@@ -26,37 +107,42 @@ function getCheckCommandForFile(filePath: string): CheckCommandData | null {
 }
 
 async function checkFileRaw(filePath: string): Promise<FilecheckResultValue> {
-	const checkCommandData = getCheckCommandForFile(filePath)
-	if (!checkCommandData) {
+	const checkCommandDataArray = getCheckCommandsForFile(filePath)
+	if (!checkCommandDataArray) {
 		return 'UNKNOWN'
 	}
-	return new Promise((resolve) => {
-		const child = execFile(checkCommandData.command, checkCommandData.argsFn(filePath), (error, stdout, stderr) => {
-			if (debug) {
-				console.log(`Check command output for file ${filePath}:`, { stdout, stderr })
-				if (error) {
-					console.error(`Check command error for file ${filePath}:`, error)
+
+	for (const checkCommandData of checkCommandDataArray) {
+		const result: FilecheckResultValue = await new Promise((resolve) => {
+			execFile(checkCommandData.command, checkCommandData.argsFn(filePath), (error, stdout, stderr) => {
+				if (error && debug) {
+					console.error(`Error executing check command for file ${filePath}:`, error)
 				}
-			}
+				let code = 0
+				if (error) {
+					code = formatExitCode(error.code)
+				}
+				try {
+					const checkResult = checkCommandData.validator(stdout, stderr, code, filePath)
+					if (debug) {
+						console.log(
+							`Check command ${checkCommandData.command} for file ${filePath} exited with code ${code}, result: ${checkResult}`
+						)
+					}
+					resolve(checkResult)
+				} catch (validationError) {
+					if (debug) {
+						console.error(`Error validating check command output for file ${filePath}:`, validationError)
+					}
+					resolve('FAIL')
+				}
+			})
 		})
-
-		function onCloseHandler(code: number | null) {
-			child.off('close', onCloseHandler)
-			if (code === 0) {
-				resolve('PASS')
-			} else {
-				resolve('FAIL')
-			}
+		if (result !== 'PASS') {
+			return result // if any check fails, we consider the file as failed, no need to run other checks
 		}
-
-		child.on('close', (code) => {
-			onCloseHandler(code)
-		})
-		// sync check for the statuscode, if the event emitted before the callback is called (will not happen normally)
-		if (child.exitCode !== null) {
-			onCloseHandler(child.exitCode)
-		}
-	})
+	}
+	return 'PASS'
 }
 
 export async function checkFile(augmentedFilePath: AugmentedFilePath, hash: Hash): Promise<CachedResult> {
