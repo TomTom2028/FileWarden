@@ -50,14 +50,15 @@ export async function getAllPathsRecursively(fileOrFolderPath: string): Promise<
 	const status = await fs.stat(fileOrFolderPath)
 	if (status.isDirectory()) {
 		const entries = await fs.readdir(fileOrFolderPath)
-		const filePaths = await Promise.all(entries.map(entry => getAllPathsRecursively(path.join(fileOrFolderPath, entry))))
+		const filePaths = await Promise.all(
+			entries.map((entry) => getAllPathsRecursively(path.join(fileOrFolderPath, entry)))
+		)
 		return filePaths.flat()
 	} else {
 		const absolutePath = path.resolve(fileOrFolderPath) // more consistent path handling
 		return [absolutePath]
 	}
 }
-
 
 export async function applyFunctionToFilesRecursively(
 	fileOrFolderPath: string,

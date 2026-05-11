@@ -3,53 +3,71 @@ import { prisma } from './prisma.ts'
 import Hasher from './hash.ts'
 import { checkFile } from './check.ts'
 import { FilecheckResultValue } from './generated/prisma/browser.ts'
-import { getPrioritizedFilePathArray } from './priority.ts'
+import { AugmentedFilePath, getAugmentedFilePaths } from './augmenter.ts'
 
 const { fileOrFolderPath } = getArguments()
 const hasher = new Hasher()
 
 const mapOfResults: Record<string, FilecheckResultValue> = {}
 
-const allFilePaths = await getAllPathsRecursively(fileOrFolderPath)
-const { fastPaths, slowPaths } = await getPrioritizedFilePathArray(allFilePaths)
+const allFilePaths = await getAllPathsRecursively(fileOrFolderPath).then((paths) => getAugmentedFilePaths(paths))
+allFilePaths.sort((a, b) => {
+	const pritorityDiff = b.priority - a.priority
+	if (pritorityDiff !== 0) {
+		return pritorityDiff
+	}
+	// fallback to alphabetical sorting to ensure a determinstic order (for nicencess)
+	return a.path.localeCompare(b.path)
+})
 
+const currentRun = await prisma.run.create({})
 
-async function toApplyFunctiontoFile(filePath: string) {
-const hash = await hasher.hashFile(filePath)
-	const checkFileResult = await checkFile(filePath, hash)
-	console.log(`Check result for file ${filePath}:`, checkFileResult.result)
-	mapOfResults[filePath] = checkFileResult.result
+async function toApplyFunctiontoFile(filePath: AugmentedFilePath) {
+	const currentHash = await hasher.hashFile(filePath.path)
+	const checkFileResult = await checkFile(filePath, currentHash)
+	console.log(`Check result for file ${filePath.path}:`, checkFileResult.result)
+	mapOfResults[filePath.path] = checkFileResult.result
 
 	await prisma.filecheckResult.create({
 		data: {
 			file: {
 				connectOrCreate: {
 					where: {
-						path: filePath
+						path: filePath.path
 					},
 					create: {
-						path: filePath,
+						path: filePath.path
 					}
-				},
-				
+				}
 			},
 			cached: {
 				connect: {
 					id: checkFileResult.id
 				}
+			},
+			run: {
+				connect: {
+					id: currentRun.id
+				}
 			}
-			
 		}
 	})
 }
 
-for (const filePath of fastPaths) {
-	await toApplyFunctiontoFile(filePath)
-}
-for (const filePath of slowPaths) {
+for (const filePath of allFilePaths) {
 	await toApplyFunctiontoFile(filePath)
 }
 
+// we don't 'set' the og run because is useless
+await prisma.run.update({
+	where: {
+		id: currentRun.id
+	},
+	data: {
+		runStatus: 'COMPLETE',
+		finishedAt: new Date()
+	}
+})
 
 console.log('All files processed. Summary of results:')
 console.log('Amount of files processed:', Object.keys(mapOfResults).length)
