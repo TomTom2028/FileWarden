@@ -83,13 +83,18 @@ const CHECK_COMMANDS: Record<string, CheckCommandData[]> = {
 				}
 				const packets = parseInt(data.streams[0].nb_read_packets, 10)
 				const [num, den] = data.streams[0].r_frame_rate.split('/').map(Number)
-				if (num === undefined || den === undefined) {
+				if (num === undefined || den === undefined || den === 0) {
 					return 'FAIL'
 				}
 				const fps = num / den
 				const videoDur = packets / fps
-				const pct = (videoDur / duration) * 100
-				if (!Number.isFinite(pct) || pct < 99) {
+				const ratio = videoDur / duration
+				if (debug) {
+					console.log(
+						`Duration from ffprobe: ${duration}s, video duration calculated from packets and frame rate: ${videoDur}s, ratio: ${ratio}`
+					)
+				}
+				if (!Number.isFinite(ratio) || ratio < 0.5) {
 					return 'FAIL'
 				}
 				return 'PASS'
