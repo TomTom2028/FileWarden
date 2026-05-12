@@ -94,7 +94,7 @@ const CHECK_COMMANDS: Record<string, CheckCommandData[]> = {
 						`Duration from ffprobe: ${duration}s, video duration calculated from packets and frame rate: ${videoDur}s, ratio: ${ratio}`
 					)
 				}
-				if (!Number.isFinite(ratio) || ratio < 0.5) {
+				if (!Number.isFinite(ratio) || ratio < 0.8) {
 					return 'FAIL'
 				}
 				return 'PASS'
