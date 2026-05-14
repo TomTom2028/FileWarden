@@ -1,12 +1,12 @@
 import { getAllPathsRecursively, getArguments } from './utils.ts'
 import { prisma } from './prisma.ts'
-import Hasher from './hash.ts'
+import { createHasher } from './hash/index.ts'
 import { checkFile } from './check.ts'
 import { FilecheckResultValue } from './generated/prisma/browser.ts'
 import { AugmentedFilePath, getAugmentedFilePaths } from './augmenter.ts'
 
 const { fileOrFolderPath } = getArguments()
-const hasher = new Hasher()
+const hasher = createHasher('FULL')
 
 const mapOfResults: Record<string, FilecheckResultValue> = {}
 

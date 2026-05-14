@@ -1,7 +1,7 @@
 import { execFile } from 'child_process'
 import { CachedResult, FilecheckResultValue } from './generated/prisma/client.ts'
 import { getArguments } from './utils.ts'
-import { Hash } from './hash.ts'
+import { Hash } from './types/hashTypes.ts'
 import { prisma } from './prisma.ts'
 import { AugmentedFilePath } from './augmenter.ts'
 import z from 'zod'

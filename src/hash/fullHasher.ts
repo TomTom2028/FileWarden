@@ -2,15 +2,16 @@ import xhashAddon from 'xxhash-addon'
 import syncFs from 'fs'
 const { XXHash128 } = xhashAddon
 import type { XXHash } from 'xxhash-addon'
-export type Hash = Uint8Array<ArrayBuffer>
-export default class Hasher {
+import { Hasher } from '../types/hashTypes.ts'
+
+export default class FullHasher implements Hasher {
 	private bufferedXHash: XXHash
 
 	constructor() {
 		this.bufferedXHash = new XXHash128(Buffer.from([0, 0, 0, 0]))
 	}
 
-	public async hashFile(filePath: string): Promise<Hash> {
+	public async hashFile(filePath: string) {
 		const stream = syncFs.createReadStream(filePath, { highWaterMark: 1024 * 1024 }) // 1MB chunk size
 		for await (const chunk of stream) {
 			if (!Buffer.isBuffer(chunk)) {
@@ -20,6 +21,11 @@ export default class Hasher {
 		}
 		const hash = new Uint8Array(this.bufferedXHash.digest())
 		this.bufferedXHash.reset()
+		stream.close((err) => {
+			if (err) {
+				console.warn(`Error closing stream for file ${filePath}:`, err)
+			}
+		})
 		return hash
 	}
 }
