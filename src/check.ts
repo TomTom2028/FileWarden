@@ -1,11 +1,13 @@
 import { execFile } from 'child_process'
 import { CachedResult, FilecheckResultValue } from './generated/prisma/client.ts'
 import { getArguments } from './utils.ts'
-import { Hash } from './types/hashTypes.ts'
 import { prisma } from './prisma.ts'
 import { AugmentedFilePath } from './augmenter.ts'
 import z from 'zod'
 const { debug } = getArguments()
+import { createHasher } from './hash/index.ts'
+const fullHasher = createHasher('FULL')
+const quickHasher = createHasher('QUICK')
 
 function defaultValidator(_: string, __: string, exitCode: number, filePath: string): FilecheckResultValue {
 	if (exitCode === 0) {
@@ -150,30 +152,64 @@ async function checkFileRaw(filePath: string): Promise<FilecheckResultValue> {
 	return 'PASS'
 }
 
-export async function checkFile(augmentedFilePath: AugmentedFilePath, hash: Hash): Promise<CachedResult> {
-	if (debug) {
-		console.log(`Hash for file ${augmentedFilePath.path}:`, Buffer.from(hash).toString('hex'))
-	}
-	let cachedResult = augmentedFilePath.cachedResult
-	if (hash !== cachedResult?.hash) {
-		// the hash of the latest run is differnt, but maybe we already have a cached duplicate of this file
-		cachedResult = await prisma.cachedResult.findFirst({
-			where: {
-				hash
+function getNewValidTime(): Date {
+	// base = 30 days
+	const baseTime = 30 * 24 * 60 * 60 * 1000
+	// add some random time between - 10 and + 10 days to avoid all cached results expiring at the same time
+	const randomAdditionalTime = (Math.random() - 0.5) * 20 * 24 * 60 * 60 * 1000
+	return new Date(Date.now() + baseTime + randomAdditionalTime)
+}
+
+export async function checkFile(augmentedFilePath: AugmentedFilePath): Promise<CachedResult> {
+	const quickHash = await quickHasher.hashFile(augmentedFilePath.path)
+	const quickHashResult = await prisma.cachedResult.findFirst({
+		where: {
+			quickHash,
+			quickHashValidUntil: {
+				gt: new Date()
 			}
-		})
+		}
+	})
+	if (quickHashResult) {
+		if (debug) {
+			console.log(
+				`Quick hash hit for file ${augmentedFilePath.path}, quick hash: ${quickHash.toString()}, result: ${quickHashResult.result}`
+			)
+		}
+		return quickHashResult
 	}
 
-	if (debug) {
-		console.log(`Cached result for file ${augmentedFilePath.path}:`, cachedResult)
-	}
+	const fullHash = await fullHasher.hashFile(augmentedFilePath.path)
+	const cachedResult = await prisma.cachedResult.findFirst({
+		where: {
+			hash: fullHash
+		}
+	})
 	if (cachedResult) {
+		if (debug) {
+			console.log(
+				`Full hash hit for file ${augmentedFilePath.path}, full hash: ${fullHash.toString()}, result: ${cachedResult.result}`
+			)
+		}
+		// update quick hash and its valid until to speed up future checks
+		await prisma.cachedResult.update({
+			where: {
+				id: cachedResult.id
+			},
+			data: {
+				quickHash, // this update is really not needed (full hash for file consistency but if they ever get out of sync this fixes it)
+				quickHashValidUntil: getNewValidTime()
+			}
+		})
 		return cachedResult
 	}
+
 	const checkResult = await checkFileRaw(augmentedFilePath.path)
 	const newCachedResult = await prisma.cachedResult.create({
 		data: {
-			hash,
+			hash: fullHash,
+			quickHash,
+			quickHashValidUntil: getNewValidTime(),
 			result: checkResult
 		}
 	})

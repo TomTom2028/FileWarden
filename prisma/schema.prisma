@@ -25,7 +25,11 @@ model CachedResult {
   hash      Bytes                @unique
   result    FilecheckResultValue
   firstSeen DateTime             @default(now()) @map("first_seen")
-  history   FilecheckResult[]
+
+  quickHash           Bytes    @map("quick_hash")
+  quickHashValidUntil DateTime @map("quick_hash_valid_until")
+
+  history FilecheckResult[]
 
   @@index([hash])
   @@map("cached_result")

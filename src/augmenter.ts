@@ -1,14 +1,17 @@
 import { prisma } from './prisma.ts'
-import { CachedResult } from './generated/prisma/client.ts'
+import type { CachedResult } from './generated/prisma/client.ts'
 
 export type AugmentedFilePath = {
 	path: string
 	priority: number
+}
+
+type AugmentedFilePathWithCachedResult = AugmentedFilePath & {
 	cachedResult: CachedResult | null
 }
 
 export async function getAugmentedFilePaths(filePaths: string[]): Promise<AugmentedFilePath[]> {
-	const prioritizedPaths: AugmentedFilePath[] = filePaths.map((filePath) => {
+	const prioritizedPaths: AugmentedFilePathWithCachedResult[] = filePaths.map((filePath) => {
 		return {
 			path: filePath,
 			priority: 0,
@@ -80,5 +83,5 @@ export async function getAugmentedFilePaths(filePaths: string[]): Promise<Augmen
 		}
 	})
 
-	return prioritizedPaths
+	return prioritizedPaths.map(({ cachedResult: _, ...rest }) => rest) // we don't want to return the cached result, it's only used for prioritization
 }

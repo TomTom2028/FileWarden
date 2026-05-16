@@ -4,13 +4,11 @@ import { AbstractHasher } from './abstractHasher.ts'
 const CHUNK_SIZE = 1024 * 1024 // 1MB
 
 export default class QuickHasher extends AbstractHasher {
-
 	protected async windUpHasher(filePath: string) {
-		// take mtimeMS and size as preamble
+		// take size as preamble
 		const stats = await fs.stat(filePath)
-		const mtimeMS = stats.mtimeMs
 		const size = stats.size
-		const combined = `${mtimeMS}-${size}`
+		const combined = `${size}`
 
 		this.updateHasher(Buffer.from(combined))
 

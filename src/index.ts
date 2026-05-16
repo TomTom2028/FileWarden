@@ -1,13 +1,10 @@
 import { getAllPathsRecursively, getArguments } from './utils.ts'
 import { prisma } from './prisma.ts'
-import { createHasher } from './hash/index.ts'
 import { checkFile } from './check.ts'
 import { FilecheckResultValue } from './generated/prisma/browser.ts'
 import { AugmentedFilePath, getAugmentedFilePaths } from './augmenter.ts'
 
 const { fileOrFolderPath } = getArguments()
-const hasher = createHasher('FULL')
-
 const mapOfResults: Record<string, FilecheckResultValue> = {}
 
 const allFilePaths = await getAllPathsRecursively(fileOrFolderPath).then((paths) => getAugmentedFilePaths(paths))
@@ -23,8 +20,7 @@ allFilePaths.sort((a, b) => {
 const currentRun = await prisma.run.create({})
 
 async function toApplyFunctiontoFile(filePath: AugmentedFilePath) {
-	const currentHash = await hasher.hashFile(filePath.path)
-	const checkFileResult = await checkFile(filePath, currentHash)
+	const checkFileResult = await checkFile(filePath)
 	console.log(`Check result for file ${filePath.path}:`, checkFileResult.result)
 	mapOfResults[filePath.path] = checkFileResult.result
 
