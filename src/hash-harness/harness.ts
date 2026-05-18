@@ -2,7 +2,7 @@
 import QuickHasher from '../hash/quickHasher.ts'
 import { Hasher } from '../types/hashTypes.ts'
 import { getAllPathsRecursively } from '../utils.ts'
-const fileOrFolderPath = 'D:\\test hashing\\input'
+const fileOrFolderPath = 'Y:\\media\\tvseries\\One Piece\\Season 13'
 
 async function testHasher(hasher: Hasher) {
 	const allPaths = (await getAllPathsRecursively(fileOrFolderPath)).filter((path) => {
@@ -13,6 +13,7 @@ async function testHasher(hasher: Hasher) {
 	const startTime = Date.now()
 	for (const path of allPaths) {
 		await hasher.hashFile(path)
+        console.log(`Hashed file: ${path}`)
 		timestamps.push(Date.now())
 	}
 	const totalTime = Date.now() - startTime
