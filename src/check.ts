@@ -6,6 +6,7 @@ import { AugmentedFilePath } from './augmenter.ts'
 import z from 'zod'
 const { debug } = getArguments()
 import { createHasher } from './hash/index.ts'
+import { Hash } from './types/hashTypes.ts'
 const fullHasher = createHasher('FULL')
 const quickHasher = createHasher('QUICK')
 
@@ -160,8 +161,42 @@ function getNewValidTime(): Date {
 	return new Date(Date.now() + baseTime + randomAdditionalTime)
 }
 
+async function updateQuickHash(cachedResultId: number, quickHash: Hash): Promise<void> {
+	// update quick hash and its valid until to speed up future checks
+	await prisma.cachedResult.update({
+		where: {
+			id: cachedResultId
+		},
+		data: {
+			quickHash, // this update is really not needed (full hash for file consistency but if they ever get out of sync this fixes it)
+			quickHashValidUntil: getNewValidTime()
+		}
+	})
+}
+
 export async function checkFile(augmentedFilePath: AugmentedFilePath): Promise<CachedResult> {
 	const quickHash = await quickHasher.hashFile(augmentedFilePath.path)
+
+	// four tiers of caching:
+	// 1. quick hash from augmented filepath
+	// 2. quick hash serach from db
+	// 3. full hash from augmented filepath
+	// 4. full hash search from db
+
+	// 1.
+	if (
+		augmentedFilePath.cachedResult?.quickHash === quickHash &&
+		augmentedFilePath.cachedResult.quickHashValidUntil > new Date()
+	) {
+		if (debug) {
+			console.log(
+				`Quick hash hit from augmented file path for file ${augmentedFilePath.path}, quick hash: ${quickHash.toString()}, result: ${augmentedFilePath.cachedResult.result}`
+			)
+		}
+		return augmentedFilePath.cachedResult
+	}
+
+	// 2.
 	const quickHashResult = await prisma.cachedResult.findFirst({
 		where: {
 			quickHash,
@@ -180,6 +215,23 @@ export async function checkFile(augmentedFilePath: AugmentedFilePath): Promise<C
 	}
 
 	const fullHash = await fullHasher.hashFile(augmentedFilePath.path)
+
+	// NOTE: when we update the quick hash we don't return the updated version.
+	// this is because we don't care about the hashes or the valid untill in index.ts
+	// TODO: remove the not updated info from the return value of this function!
+
+	// 3.
+	if (augmentedFilePath.cachedResult?.hash === fullHash) {
+		if (debug) {
+			console.log(
+				`Full hash hit from augmented file path for file ${augmentedFilePath.path}, full hash: ${fullHash.toString()}, result: ${augmentedFilePath.cachedResult.result}`
+			)
+		}
+		await updateQuickHash(augmentedFilePath.cachedResult.id, quickHash) // update quick hash for future faster checks
+		return augmentedFilePath.cachedResult
+	}
+
+	// 4.
 	const cachedResult = await prisma.cachedResult.findFirst({
 		where: {
 			hash: fullHash
@@ -192,18 +244,11 @@ export async function checkFile(augmentedFilePath: AugmentedFilePath): Promise<C
 			)
 		}
 		// update quick hash and its valid until to speed up future checks
-		await prisma.cachedResult.update({
-			where: {
-				id: cachedResult.id
-			},
-			data: {
-				quickHash, // this update is really not needed (full hash for file consistency but if they ever get out of sync this fixes it)
-				quickHashValidUntil: getNewValidTime()
-			}
-		})
+		await updateQuickHash(cachedResult.id, quickHash)
 		return cachedResult
 	}
 
+	// fallback to actually checking the file and creating a new cached result
 	const checkResult = await checkFileRaw(augmentedFilePath.path)
 	const newCachedResult = await prisma.cachedResult.create({
 		data: {
