@@ -79,14 +79,14 @@ export async function applyFunctionToFilesRecursively(
 
 export async function chunkedMapAsync<TArrayValue, TReturnValue>(array: TArrayValue[], chunkSize: number, callback: (chunk:TArrayValue[]) => PromiseLike<TReturnValue[]>
 ): Promise<TReturnValue[]> {
-	if (array.length = 0) {
+	if (array.length === 0) {
 		return Promise.resolve([])
 	}
 	if (array.length < chunkSize) {
 		return callback(array)
 	}
 
-	const asyncResultChunks: Array<PromiseLike<TReturnValue[]>> = [] // we first start all operations and only at the end flatten. so as much work is started as soon as possiblle
+	const asyncResultChunks: PromiseLike<TReturnValue[]>[] = [] // we first start all operations and only at the end flatten. so as much work is started as soon as possiblle
 	let accumulator: TArrayValue[] = []
 	for (const value of array) {
 		accumulator.push(value)
