@@ -19,8 +19,8 @@ export async function getAugmentedFilePaths(filePaths: string[]): Promise<Augmen
 
 	const allPaths = new Set(filePaths)
 
-	const doExistPaths = await chunkedMapAsync(filePaths, SQLITE_SAFE_PARAM_LIMIT, (filePathChunk) => prisma.file
-		.findMany({
+	const doExistPaths = await chunkedMapAsync(filePaths, SQLITE_SAFE_PARAM_LIMIT, (filePathChunk) =>
+		prisma.file.findMany({
 			where: {
 				path: {
 					in: filePathChunk
@@ -29,15 +29,15 @@ export async function getAugmentedFilePaths(filePaths: string[]): Promise<Augmen
 			select: {
 				path: true
 			}
-		})).then((files) => new Set(files.map((file) => file.path)))
+		})
+	).then((files) => new Set(files.map((file) => file.path)))
 
-	
 	// fill the cache / probable not checked files are first, bcs this has a positive effect for future runs
 	// (if we stop the program early, usefull work was done, and the next run will be faster)
 	const doNotExistPaths = allPaths.difference(doExistPaths)
 
-	const latestExistingCachedFileChecks = await chunkedMapAsync(filePaths, SQLITE_SAFE_PARAM_LIMIT, (filePathChunk) => prisma.filecheckResult
-		.findMany({
+	const latestExistingCachedFileChecks = await chunkedMapAsync(filePaths, SQLITE_SAFE_PARAM_LIMIT, (filePathChunk) =>
+		prisma.filecheckResult.findMany({
 			where: {
 				file: {
 					path: {
@@ -62,10 +62,10 @@ export async function getAugmentedFilePaths(filePaths: string[]): Promise<Augmen
 				cached: true
 			},
 			distinct: ['fileId']
-		})).then((results) => {
-			return new Map(results.map((result) => [result.file.path, result.cached]))
 		})
-
+	).then((results) => {
+		return new Map(results.map((result) => [result.file.path, result.cached]))
+	})
 
 	prioritizedPaths.forEach((prioritizedPath) => {
 		if (doNotExistPaths.has(prioritizedPath.path)) {

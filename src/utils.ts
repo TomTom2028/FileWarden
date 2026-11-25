@@ -77,7 +77,10 @@ export async function applyFunctionToFilesRecursively(
 	}
 }
 
-export async function chunkedMapAsync<TArrayValue, TReturnValue>(array: TArrayValue[], chunkSize: number, callback: (chunk:TArrayValue[]) => PromiseLike<TReturnValue[]>
+export async function chunkedMapAsync<TArrayValue, TReturnValue>(
+	array: TArrayValue[],
+	chunkSize: number,
+	callback: (chunk: TArrayValue[]) => PromiseLike<TReturnValue[]>
 ): Promise<TReturnValue[]> {
 	if (array.length === 0) {
 		return Promise.resolve([])
@@ -96,7 +99,7 @@ export async function chunkedMapAsync<TArrayValue, TReturnValue>(array: TArrayVa
 		}
 	}
 	if (accumulator.length > 0) {
-		asyncResultChunks.push(callback(accumulator))// process the rest that was not cleared
+		asyncResultChunks.push(callback(accumulator)) // process the rest that was not cleared
 	}
 
 	// now we flatten it all out

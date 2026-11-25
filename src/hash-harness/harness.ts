@@ -13,7 +13,7 @@ async function testHasher(hasher: Hasher) {
 	const startTime = Date.now()
 	for (const path of allPaths) {
 		await hasher.hashFile(path)
-        console.log(`Hashed file: ${path}`)
+		console.log(`Hashed file: ${path}`)
 		timestamps.push(Date.now())
 	}
 	const totalTime = Date.now() - startTime
