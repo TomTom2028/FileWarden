@@ -22,6 +22,15 @@ export default tseslint.config(
 			'@typescript-eslint/consistent-type-definitions': ['error', 'type'],
 			// Allow numbers (and bigint) in template literals — `${count}` is idiomatic for logs;
 			// requiring `.toString()` everywhere is more noise than safety.
+			'no-unused-vars': 'off',
+			'@typescript-eslint/no-unused-vars': [
+				'error',
+				{
+					argsIgnorePattern: '^_',
+					varsIgnorePattern: '^_',
+					caughtErrorsIgnorePattern: '^_'
+				}
+			],
 			'@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true }]
 		}
 	},

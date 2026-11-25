@@ -1,5 +1,5 @@
 import { prisma } from './prisma.ts'
-import { CachedResult } from './generated/prisma/client.ts'
+import type { CachedResult } from './generated/prisma/client.ts'
 
 export type AugmentedFilePath = {
 	path: string
