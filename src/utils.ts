@@ -76,3 +76,33 @@ export async function applyFunctionToFilesRecursively(
 		await func(absolutePath)
 	}
 }
+
+export async function chunkedMapAsync<TArrayValue, TReturnValue>(array: TArrayValue[], chunkSize: number, callback: (chunk:TArrayValue[]) => PromiseLike<TReturnValue[]>
+): Promise<TReturnValue[]> {
+	if (array.length = 0) {
+		return Promise.resolve([])
+	}
+	if (array.length < chunkSize) {
+		return callback(array)
+	}
+
+	const asyncResultChunks: Array<PromiseLike<TReturnValue[]>> = [] // we first start all operations and only at the end flatten. so as much work is started as soon as possiblle
+	let accumulator: TArrayValue[] = []
+	for (const value of array) {
+		accumulator.push(value)
+		if (accumulator.length >= chunkSize) {
+			asyncResultChunks.push(callback(accumulator))
+			accumulator = [] // we processed chunk, reset to empty
+		}
+	}
+	if (accumulator.length > 0) {
+		asyncResultChunks.push(callback(accumulator))// process the rest that was not cleared
+	}
+
+	// now we flatten it all out
+	const awaitedChunks = await Promise.all(asyncResultChunks)
+
+	return awaitedChunks.flat() // we flatten it!
+}
+
+export const SQLITE_SAFE_PARAM_LIMIT = 900
